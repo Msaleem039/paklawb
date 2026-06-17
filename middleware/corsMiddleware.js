@@ -11,7 +11,7 @@ const corsOptions = {
       // Production
       'https://dairydelightcheese.com',
       'https://www.dairydelightcheese.com',
-      'https://paklaw.com',
+      'https://paklawbook.com',
     ];
     
     // Allow requests with no origin (like mobile apps, Postman, curl, etc.)
