@@ -5,7 +5,7 @@ import validator from 'validator'
 
 //login user
 const loginUser = async (req,res) =>{
-    const {email, password} = req.body;
+    const {email, pin} = req.body;
     try {
         const user = await userModel.findOne({email});
 
@@ -13,7 +13,7 @@ const loginUser = async (req,res) =>{
            return res.json({success:false, message:'User does not exist'}) 
         }
 
-        const isMatch = await bcrypt.compare(password,user.password)
+        const isMatch = await bcrypt.compare(pin, user.pin)
 
         if(!isMatch){
             return res.json({success:false, message:'Invalid credentials'})
@@ -35,43 +35,65 @@ const createToken = (id) =>{
 
 //register user
 const registerUser = async (req, res) =>{
-    const {name,password,email,role} = req.body;
+    const {
+        firstName,
+        lastName,
+        mobileNo,
+        email,
+        pin,
+        confirmPin,
+        address,
+        city,
+        role
+    } = req.body;
     try {
-
-        // checking is user already exists
-        const exists = await userModel.findOne({email});
-        if(exists){
-            return res.json({success:false, message:'User already exists'})
+        const requiredFields = { firstName, lastName, mobileNo, email, pin, confirmPin, address, city };
+        const missingField = Object.entries(requiredFields).find(([, value]) => !value?.toString().trim());
+        if (missingField) {
+            return res.json({ success: false, message: `${missingField[0]} is required` });
         }
 
-        //validating email format and strong password
-        if(!validator.isEmail(email)){
-            return res.json({success:false, message:'Please enter a valid email'})
+        const exists = await userModel.findOne({ $or: [{ email }, { mobileNo }] });
+        if (exists) {
+            const message = exists.email === email
+                ? 'User with this email already exists'
+                : 'User with this mobile number already exists';
+            return res.json({ success: false, message });
         }
 
-        if(password.length<8){
-            return res.json({success:false, message:'Please enter a strong password'})
+        if (!validator.isEmail(email)) {
+            return res.json({ success: false, message: 'Please enter a valid email' });
         }
 
-        // Validate role if provided
-        if(role && !['admin','user'].includes(role)){
-            return res.json({success:false, message:'Invalid role. Role must be admin or user'})
+        if (!/^\d{4}$/.test(pin)) {
+            return res.json({ success: false, message: 'PIN must be exactly 4 digits' });
         }
 
-        // hashing user password
-        const salt = await bcrypt.genSalt(10)
-        const hashedPassword = await bcrypt.hash(password,salt);
+        if (pin !== confirmPin) {
+            return res.json({ success: false, message: 'PIN and confirm PIN do not match' });
+        }
+
+        if (role && !['admin', 'user'].includes(role)) {
+            return res.json({ success: false, message: 'Invalid role. Role must be admin or user' });
+        }
+
+        const salt = await bcrypt.genSalt(10);
+        const hashedPin = await bcrypt.hash(pin, salt);
 
         const newUser = new userModel({
-            name:name,
-            email:email,
-            password:hashedPassword,
-            role:role || 'user'
-        })
+            firstName: firstName.trim(),
+            lastName: lastName.trim(),
+            mobileNo: mobileNo.trim(),
+            email: email.trim().toLowerCase(),
+            pin: hashedPin,
+            address: address.trim(),
+            city: city.trim(),
+            role: role || 'user'
+        });
 
-      const user =  await newUser.save()
-      const token = createToken(user._id)
-      res.json({success:true, token, role:user.role})
+        const user = await newUser.save();
+        const token = createToken(user._id);
+        res.json({ success: true, token, role: user.role });
 
     } catch (error) {
         console.log(error)

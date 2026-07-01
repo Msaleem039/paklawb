@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-
+// this is the module code 
 const foodSchema = new mongoose.Schema({
     name: {type: String,required: true},
     description: {type: String,required: true},
